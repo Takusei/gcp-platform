@@ -21,11 +21,13 @@ locals {
     "Takusei/line-webhook", "Takusei/line-poster",
     "Takusei/marp-ppt-agent", "Takusei/marp-ppt-api",
     "Takusei/pdm-agent-backend", "Takusei/realEstate",
+    "Takusei/pdm-agent-chatkit",
   ])
   registries = toset([
     "fastapi-repo", "knowledge-search", "line-webhook", "line-poster",
     "marp-ppt-agent", "marp-ppt-api", "pdf-agent-backend",
     "rec-agent", "realestate-repo", "rec-embed",
+    "pdm-agent-chatkit",
   ])
 }
 

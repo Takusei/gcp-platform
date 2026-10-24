@@ -34,8 +34,8 @@ def main():
     secrets = set(shared["on"]["workflow_call"]["secrets"])
     expected_secrets = {"workload_identity_provider", "deploy_service_account"}
     assert secrets == expected_secrets
-    assert len(targets) == 10
-    assert len({t["repository"] for t in targets}) == 8
+    assert len(targets) == 11
+    assert len({t["repository"] for t in targets}) == 9
     assert len({(t['kind'], t['target']) for t in targets}) == len(targets)
     for target in targets:
         if args.shared_only:
@@ -78,7 +78,7 @@ def main():
         ast.parse(path.read_text(), filename=str(path))
     for path in ROOT.rglob("*.tf"):
         assert path.read_text().count("{") == path.read_text().count("}"), path
-    print("PASS: " + ("shared workflow" if args.shared_only else "10 callers / 8 repositories, paths, remotes, credential exclusions") + ", shell/Python syntax")
+    print("PASS: " + ("shared workflow" if args.shared_only else "11 callers / 9 repositories, paths, remotes, credential exclusions") + ", shell/Python syntax")
     print("Terraform brace sanity only; run terraform fmt/validate and actionlint before publication.")
 
 

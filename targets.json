@@ -108,5 +108,16 @@
     "build_context": "embed",
     "dockerfile": "embed/Dockerfile",
     "workflow": "deploy-suumo-embed-job.yml"
+  },
+  {
+    "local_path": "pdm/pdm-agent-chatkit",
+    "repository": "Takusei/pdm-agent-chatkit",
+    "kind": "service",
+    "target": "pdm-agent-chatkit-service",
+    "registry_repository": "pdm-agent-chatkit",
+    "image_name": "pdm-agent-chatkit",
+    "build_context": ".",
+    "dockerfile": "dockerfile",
+    "workflow": "deploy-pdm-agent-chatkit-service.yml"
   }
 ]

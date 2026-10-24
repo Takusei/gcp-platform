@@ -44,7 +44,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", default="dev-projects-476011")
     parser.add_argument("--region", default="asia-northeast1")
-    parser.add_argument("--target", help="Optional service/job name; default: all ten targets")
+    parser.add_argument("--target", help="Optional service/job name; default: all configured targets")
     args = parser.parse_args()
     targets = json.loads((ROOT / "targets.json").read_text())
     if args.target:
