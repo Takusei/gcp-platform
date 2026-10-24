@@ -3,11 +3,11 @@
 ## Passed locally
 
 - `scripts/validate.py`: ten caller workflows across eight repositories; caller
-  inputs/secrets match the reusable interface; main-branch triggers; Dockerfile
+  inputs/secrets match the reusable interface; manual-only triggers restricted to main; Dockerfile
   and context paths exist; GitHub remotes match the target inventory; credential
   exclusions exist at the actual Docker build-context roots; legacy API image-only
   workflow is removed; build precedes GCP authentication; embedded shell and
-  Python syntax parse; central workflows parse as YAML.
+  Python syntax parse; central workflows parse as YAML and pin `ubuntu-24.04`.
 - `scripts/validate.py --shared-only`: portable shared-repository checks pass
   without requiring sibling repositories (used by CI).
 - `python -m unittest discover -s tests -v`: **9 tests passed**, exercising the
@@ -43,3 +43,16 @@ Local Python checks used the already-installed Python/PyYAML from
 `validate.yml` runs the offline tests plus real Terraform provider validation in
 GitHub. Run the rollout guide's local Terraform/actionlint checks first, and let
 that validation workflow pass before publishing the shared `v1` tag.
+
+## Actions runtime maintenance
+
+Updated both central workflows to `ubuntu-24.04` and Node.js 24 action releases:
+checkout v6, setup-python v6, setup-terraform v4, setup-buildx-action v4, and
+build-push-action v7. Verified the upstream action manifests declare `node24`.
+Google auth/setup-gcloud remain on their existing Node.js 24 v3 releases.
+The build-order validator now follows build-push-action v7 and checks OS pinning.
+Manual-only deployment guards are retained. The Terraform CLI stays at 1.9.8.
+
+These changes address the Node.js 20 annotations and avoid the automatic
+ubuntu-latest OS migration. They require a new GitHub run to verify remotely;
+local YAML/shell checks and all nine fixture tests pass.

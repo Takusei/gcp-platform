@@ -1,6 +1,6 @@
 # Portfolio GCP deployment
 
-One release process for the eight GCP backend repositories: push to `main` →
+One release process for the eight GCP backend repositories: manually run a deployment from `main` in GitHub Actions →
 Docker build (`linux/amd64`) → Artifact Registry → update the existing Cloud Run
 service/job by immutable image digest. Vercel deployments stay separate.
 
@@ -60,7 +60,7 @@ Memory MCP. Moving those requires separate transport/hosting work.
 ## Authentication and scope
 
 The new `portfolio-github` WIF pool accepts only the eight named repositories,
-the numeric GitHub owner ID, `refs/heads/main`, and push/manual-dispatch events.
+the numeric GitHub owner ID, `refs/heads/main`, and manual-dispatch events only.
 One dedicated deployment service account is shared across these personal projects:
 it has project-wide Cloud Run Developer, writer on the ten existing Artifact
 Registry repositories, and Service Account User on explicitly listed runtime

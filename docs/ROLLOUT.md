@@ -2,7 +2,10 @@
 
 Run the commands below yourself in your normal terminal, from
 `/Users/jaycen/workspace/projects/gcp-platform`, unless another directory is shown.
-Publishing the caller workflows to `main` will trigger production deployment.
+Publishing caller workflows does not deploy anything. Deployments run only when
+you choose **Actions → Deploy TARGET → Run workflow → main → Run workflow** in
+the application repository. The workflow file must first be present on the
+repository's default branch for GitHub to show the manual-run button.
 
 ## 1. Confirm live targets first
 
@@ -143,7 +146,9 @@ gh run list --workflow deploy-fastapi-service.yml --limit 5
 ```
 
 If your current branch is not `main`, use your normal PR/merge process instead
-of the last push command. The deployment triggers on the resulting `main` push.
+of the last push command. After merging/pushing, open **Actions → Deploy
+fastapi-service → Run workflow**, select **main**, and click **Run workflow**.
+The push itself does not deploy.
 
 The workflow summary shows the exact image digest. Service readiness is checked
 without sending application requests or consuming model tokens. Check the UI/login
@@ -152,10 +157,12 @@ consume live APIs and require your explicit decision to run them.
 
 Roll out LINE, PPT, Real Estate, Knowledge Search, then the PDM backend, committing
 only the files listed by `git status` for this task in each repository. Run
-`actionlint` in each repository before publishing. Real Estate's three workflows
-watch their own subdirectories; Knowledge Search watches `backend/**`.
-Root-context applications ignore Markdown-only pushes. Use manual dispatch on
-`main` for a release without a source change.
+`actionlint` in each repository before publishing. Then manually run the desired
+deployment workflow from **main** in each repository's Actions tab. Real Estate
+has separate workflows for its agent, scraper, and embedding targets. Releases
+use the main-branch commit selected when dispatched; other branches are rejected
+by the deployment guard and GCP identity condition. Code pushes never trigger
+these deployments.
 
 For jobs, confirm the updated digest and existing Cloud Scheduler linkage. The
 deployment never executes them; do not run the news-poster job just to test CI

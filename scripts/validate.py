@@ -26,7 +26,10 @@ def main():
     for path in (ROOT / '.github/workflows').glob('*.yml'):
         document = yaml.load(path.read_text(), Loader=WorkflowLoader)
         assert 'on' in document and 'jobs' in document, path
+        for job in document['jobs'].values():
+            assert job.get('runs-on') == 'ubuntu-24.04', (path, 'Pin the runner OS')
     shared = yaml.load(shared_path.read_text(), Loader=WorkflowLoader)
+    assert shared["jobs"]["deploy"]["if"] == "github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'"
     declared = set(shared["on"]["workflow_call"]["inputs"])
     secrets = set(shared["on"]["workflow_call"]["secrets"])
     expected_secrets = {"workload_identity_provider", "deploy_service_account"}
@@ -40,8 +43,8 @@ def main():
         repo = WORKSPACE / target["local_path"]
         path = repo / ".github/workflows" / target["workflow"]
         workflow = yaml.load(path.read_text(), Loader=WorkflowLoader)
-        assert workflow["on"]["push"]["branches"] == ["main"]
-        assert "workflow_dispatch" in workflow["on"]
+        assert set(workflow["on"]) == {"workflow_dispatch"}, (path, "Deployment must be manual only")
+        assert workflow["jobs"]["deploy"]["if"] == "github.ref == 'refs/heads/main'"
         job = workflow["jobs"]["deploy"]
         assert job["uses"] == "Takusei/gcp-platform/.github/workflows/deploy-cloud-run.yml@v1"
         assert set(job["with"]) == declared
@@ -63,7 +66,7 @@ def main():
         assert not (WORKSPACE / "api-collections/.github/workflows/docker-publish.yml").exists()
     steps = shared["jobs"]["deploy"]["steps"]
     uses = [s.get("uses", "") for s in steps]
-    assert uses.index("docker/build-push-action@v6") < uses.index("google-github-actions/auth@v3")
+    assert uses.index("docker/build-push-action@v7") < uses.index("google-github-actions/auth@v3")
     assert "jobs execute" not in shared_path.read_text()
     for step in steps:
         if "run" in step:

@@ -44,7 +44,7 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "attribute.repository" = "assertion.repository"
     "attribute.ref"        = "assertion.ref"
   }
-  attribute_condition = "assertion.repository_owner_id == '${var.github_owner_id}' && assertion.repository in ${jsonencode(sort(tolist(local.repositories)))} && assertion.ref == 'refs/heads/main' && assertion.event_name in ['push', 'workflow_dispatch']"
+  attribute_condition = "assertion.repository_owner_id == '${var.github_owner_id}' && assertion.repository in ${jsonencode(sort(tolist(local.repositories)))} && assertion.ref == 'refs/heads/main' && assertion.event_name == 'workflow_dispatch'"
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
