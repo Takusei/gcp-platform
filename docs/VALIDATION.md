@@ -42,7 +42,7 @@ Local Python checks used the already-installed Python/PyYAML from
 
 `validate.yml` runs the offline tests plus real Terraform provider validation in
 GitHub. Run the rollout guide's local Terraform/actionlint checks first, and let
-that validation workflow pass before publishing the shared `v1` tag.
+that validation workflow pass before updating application callers to a new shared commit.
 
 ## Actions runtime maintenance
 
@@ -56,3 +56,11 @@ Manual-only deployment guards are retained. The Terraform CLI stays at 1.9.8.
 These changes address the Node.js 20 annotations and avoid the automatic
 ubuntu-latest OS migration. They require a new GitHub run to verify remotely;
 local YAML/shell checks and all nine fixture tests pass.
+
+## Caller revision update
+
+All ten application deployment callers now reference the actual GitHub repository
+`Takusei/gcp-platform` and pin commit
+`824dfd91ae9543423fb8669fb61d87cd3497d4c6`, which contains the Node.js 24 actions,
+Ubuntu 24.04 runner pin, and manual-only deployment guard. The local validator
+checks this same full reference. No tag creation is needed for these callers.

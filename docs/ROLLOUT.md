@@ -35,7 +35,7 @@ Existing deployment guides use `latest`; this pipeline deliberately leaves that
 tag alone and deploys commit-tagged images by digest. Check there are no external
 systems relying on `latest` being updated by every release.
 
-## 2. Validate and publish the shared repository FIRST
+## 2. Validate the shared workflow revision first
 
 ```bash
 python3 scripts/validate.py
@@ -60,21 +60,25 @@ gh run list --workflow validate.yml --limit 5
 ```
 
 Wait for `Validate shared deployment` to succeed (use `gh run watch RUN_ID`).
-Only then publish the shared version:
+The application callers use a full commit SHA; no release tag is needed.
 
-```bash
-git tag v1
-git push origin v1
+The existing remote is **Takusei/gcp-platform** (the local folder is
+`gcp-platform`). If that remote already exists, skip `gh repo create` above and
+push your reviewed changes with your normal Git workflow.
+
+Application callers currently pin the tested Node.js 24 workflow revision:
+
+```text
+Takusei/gcp-platform/.github/workflows/deploy-cloud-run.yml@824dfd91ae9543423fb8669fb61d87cd3497d4c6
 ```
 
-Public is recommended because callers may be public repositories. There are no
-credential values in the prepared repository. If choosing private visibility,
-confirm GitHub allows your caller visibility and explicitly enable workflow access
-under the shared repository's Settings → Actions → General.
+No version tag is required. Ensure this commit exists in the shared remote before
+running application deployments. The repository-creation commands above describe
+initial setup; existing users do not need to create or move a tag. For future
+shared deployment changes, validate the new commit and update caller SHA pins.
 
-For stricter version pinning, replace `@v1` in all caller workflows with the shared
-repository's full commit SHA before committing them. Publish a new version to
-roll out shared workflow changes; do not silently move `v1` after adoption.
+If using a private shared repository, explicitly enable workflow access in
+Settings → Actions → General and confirm callers can access it.
 
 ## 3. Bootstrap GCP authentication
 
