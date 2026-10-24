@@ -1,0 +1,112 @@
+[
+  {
+    "local_path": "api-collections",
+    "repository": "Takusei/api-collections",
+    "kind": "service",
+    "target": "fastapi-service",
+    "registry_repository": "fastapi-repo",
+    "image_name": "fastapi-service",
+    "build_context": ".",
+    "dockerfile": "Dockerfile",
+    "workflow": "deploy-fastapi-service.yml"
+  },
+  {
+    "local_path": "knowledge-search",
+    "repository": "Takusei/knowledge-search",
+    "kind": "service",
+    "target": "knowledge-search-backend",
+    "registry_repository": "knowledge-search",
+    "image_name": "backend",
+    "build_context": "backend",
+    "dockerfile": "backend/Dockerfile",
+    "workflow": "deploy-knowledge-search-backend.yml"
+  },
+  {
+    "local_path": "line/line-webhook",
+    "repository": "Takusei/line-webhook",
+    "kind": "service",
+    "target": "line-webhook-service",
+    "registry_repository": "line-webhook",
+    "image_name": "line-webhook",
+    "build_context": ".",
+    "dockerfile": "Dockerfile",
+    "workflow": "deploy-line-webhook-service.yml"
+  },
+  {
+    "local_path": "line/line-poster",
+    "repository": "Takusei/line-poster",
+    "kind": "job",
+    "target": "line-poster-job",
+    "registry_repository": "line-poster",
+    "image_name": "line-poster",
+    "build_context": ".",
+    "dockerfile": "Dockerfile",
+    "workflow": "deploy-line-poster-job.yml"
+  },
+  {
+    "local_path": "presentations/marp-ppt-agent",
+    "repository": "Takusei/marp-ppt-agent",
+    "kind": "service",
+    "target": "marp-ppt-agent-service",
+    "registry_repository": "marp-ppt-agent",
+    "image_name": "marp-ppt-agent",
+    "build_context": ".",
+    "dockerfile": "Dockerfile",
+    "workflow": "deploy-marp-ppt-agent-service.yml"
+  },
+  {
+    "local_path": "presentations/marp-ppt-api",
+    "repository": "Takusei/marp-ppt-api",
+    "kind": "service",
+    "target": "marp-ppt-api-service",
+    "registry_repository": "marp-ppt-api",
+    "image_name": "marp-ppt-api",
+    "build_context": ".",
+    "dockerfile": "Dockerfile",
+    "workflow": "deploy-marp-ppt-api-service.yml"
+  },
+  {
+    "local_path": "pdm/pdm-agent-backend",
+    "repository": "Takusei/pdm-agent-backend",
+    "kind": "service",
+    "target": "pdf-agent-backend-service",
+    "registry_repository": "pdf-agent-backend",
+    "image_name": "pdf-agent-backend",
+    "build_context": ".",
+    "dockerfile": "Dockerfile",
+    "workflow": "deploy-pdf-agent-backend-service.yml"
+  },
+  {
+    "local_path": "real-estate/realEstate",
+    "repository": "Takusei/realEstate",
+    "kind": "service",
+    "target": "rec-demo",
+    "registry_repository": "rec-agent",
+    "image_name": "suumo-agent",
+    "build_context": "agent",
+    "dockerfile": "agent/Dockerfile",
+    "workflow": "deploy-rec-demo.yml"
+  },
+  {
+    "local_path": "real-estate/realEstate",
+    "repository": "Takusei/realEstate",
+    "kind": "job",
+    "target": "suumo-scraper-job",
+    "registry_repository": "realestate-repo",
+    "image_name": "suumo-scraper",
+    "build_context": "scraper",
+    "dockerfile": "scraper/docker/Dockerfile",
+    "workflow": "deploy-suumo-scraper-job.yml"
+  },
+  {
+    "local_path": "real-estate/realEstate",
+    "repository": "Takusei/realEstate",
+    "kind": "job",
+    "target": "suumo-embed-job",
+    "registry_repository": "rec-embed",
+    "image_name": "suumo-embed",
+    "build_context": "embed",
+    "dockerfile": "embed/Dockerfile",
+    "workflow": "deploy-suumo-embed-job.yml"
+  }
+]

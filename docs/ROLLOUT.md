@@ -1,0 +1,215 @@
+# Setup and rollout
+
+Run the commands below yourself in your normal terminal, from
+`/Users/jaycen/workspace/projects/gcp-platform`, unless another directory is shown.
+Publishing the caller workflows to `main` will trigger production deployment.
+
+## 1. Confirm live targets first
+
+Prerequisites: Docker Desktop, Python 3, GitHub CLI, gcloud, Terraform >= 1.6 and
+< 2.0. Terraform/actionlint were unavailable in the preparation environment.
+
+```bash
+gcloud auth login
+gcloud auth application-default login
+gh auth login
+python3 scripts/inventory.py
+gh api users/Takusei --jq .id
+```
+
+Inventory is read-only. It saves only allowlisted metadata to ignored
+`inventory.local.json`, and exits with failure if any documented target is absent.
+Confirm the current image registry/repository and runtime service accounts. If a
+target or image repository differs, update `targets.json`, its caller workflow,
+and `terraform/bootstrap/main.tf` registry list before proceeding. The inventory
+does not certify that the documented registry names exist:
+
+```bash
+gcloud artifacts repositories list --project=dev-projects-476011 --location=asia-northeast1
+```
+
+Existing deployment guides use `latest`; this pipeline deliberately leaves that
+tag alone and deploys commit-tagged images by digest. Check there are no external
+systems relying on `latest` being updated by every release.
+
+## 2. Validate and publish the shared repository FIRST
+
+```bash
+python3 scripts/validate.py
+actionlint .github/workflows/deploy-cloud-run.yml
+terraform fmt -recursive terraform
+terraform -chdir=terraform/bootstrap init -backend=false
+terraform -chdir=terraform/bootstrap validate
+terraform -chdir=terraform/modules/cloud-run-service init -backend=false
+terraform -chdir=terraform/modules/cloud-run-service validate
+terraform -chdir=terraform/modules/cloud-run-job init -backend=false
+terraform -chdir=terraform/modules/cloud-run-job validate
+```
+
+`validate.py` needs PyYAML (`uv run --with pyyaml python scripts/validate.py` if
+your interpreter does not already provide it). Review the generated files, then:
+
+```bash
+git add .
+git commit -m "Add shared Cloud Run deployment workflows and GCP bootstrap"
+gh repo create Takusei/gcp-platform --public --source=. --remote=origin --push
+gh run list --workflow validate.yml --limit 5
+```
+
+Wait for `Validate shared deployment` to succeed (use `gh run watch RUN_ID`).
+Only then publish the shared version:
+
+```bash
+git tag v1
+git push origin v1
+```
+
+Public is recommended because callers may be public repositories. There are no
+credential values in the prepared repository. If choosing private visibility,
+confirm GitHub allows your caller visibility and explicitly enable workflow access
+under the shared repository's Settings → Actions → General.
+
+For stricter version pinning, replace `@v1` in all caller workflows with the shared
+repository's full commit SHA before committing them. Publish a new version to
+roll out shared workflow changes; do not silently move `v1` after adoption.
+
+## 3. Bootstrap GCP authentication
+
+Enable the required APIs if they are not already enabled:
+
+```bash
+gcloud services enable iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com run.googleapis.com artifactregistry.googleapis.com --project=dev-projects-476011
+```
+
+Create a dedicated private state bucket if you do not already have an appropriate
+one. The following name must be globally available; choose another if needed.
+
+```bash
+gcloud storage buckets create gs://dev-projects-476011-portfolio-tfstate --project=dev-projects-476011 --location=asia-northeast1 --uniform-bucket-level-access --public-access-prevention
+gcloud storage buckets update gs://dev-projects-476011-portfolio-tfstate --versioning
+cp terraform/bootstrap/terraform.tfvars.example terraform/bootstrap/terraform.tfvars
+```
+
+Edit `terraform.tfvars`: set your numeric GitHub user ID and replace the example
+runtime accounts with **all** identities printed by `inventory.py`. These inputs
+are deliberately required rather than guessed.
+
+```bash
+terraform -chdir=terraform/bootstrap init -reconfigure -backend-config="bucket=dev-projects-476011-portfolio-tfstate" -backend-config="prefix=portfolio/bootstrap"
+terraform -chdir=terraform/bootstrap plan -out=bootstrap.tfplan
+terraform -chdir=terraform/bootstrap apply bootstrap.tfplan
+terraform -chdir=terraform/bootstrap output github_secrets
+```
+
+Review the plan: it should create a dedicated WIF pool/provider, deployment
+identity and IAM memberships. It should not replace existing Cloud Run workloads,
+registries, runtime identities, application secrets, or databases. If the dedicated
+pool/deployer already exists, import it rather than trying to create it again.
+Commit `.terraform.lock.hcl` after successful initialization to pin providers.
+
+## 4. Configure GitHub authentication settings
+
+```bash
+python3 scripts/configure_github_secrets.py
+python3 scripts/configure_github_secrets.py --apply
+```
+
+The first command previews; the second writes these two repository secrets to the
+eight caller repositories using Terraform's outputs:
+
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`
+- `GCP_SERVICE_ACCOUNT`
+
+No OpenAI key, database password, or service-account JSON key belongs in this
+workflow. Existing application secrets stay in GCP Secret Manager.
+
+## 5. Pilot api-collections, then roll out the other callers
+
+First review and commit the Terraform image-ignore change in `api-collections`
+and `knowledge-search`; existing Terraform/state stays where it is. Do not run an
+old Terraform checkout after enabling the image deployment pipeline.
+
+In `api-collections`, review the diff and commit/push the new caller, removal of
+the old build-only workflow, Docker exclusions, and Terraform lifecycle change:
+
+```bash
+cd /Users/jaycen/workspace/projects/api-collections
+git diff --check
+git status --short
+git add .github/workflows .dockerignore .gitignore terraform/cloudrun.tf deployment.md
+git commit -m "Deploy Cloud Run images through shared GitHub workflow"
+git push origin main
+gh run list --workflow deploy-fastapi-service.yml --limit 5
+```
+
+If your current branch is not `main`, use your normal PR/merge process instead
+of the last push command. The deployment triggers on the resulting `main` push.
+
+The workflow summary shows the exact image digest. Service readiness is checked
+without sending application requests or consuming model tokens. Check the UI/login
+and a non-LLM health endpoint manually, where available. LLM functionality checks
+consume live APIs and require your explicit decision to run them.
+
+Roll out LINE, PPT, Real Estate, Knowledge Search, then the PDM backend, committing
+only the files listed by `git status` for this task in each repository. Run
+`actionlint` in each repository before publishing. Real Estate's three workflows
+watch their own subdirectories; Knowledge Search watches `backend/**`.
+Root-context applications ignore Markdown-only pushes. Use manual dispatch on
+`main` for a release without a source change.
+
+For jobs, confirm the updated digest and existing Cloud Scheduler linkage. The
+deployment never executes them; do not run the news-poster job just to test CI
+because it can send LINE messages and consume model tokens.
+
+## 6. Centralize infrastructure only after live inventory/state review
+
+**Release automation is ready for setup; infrastructure consolidation is staged.**
+The prepared central service/job modules are opt-in and are not instantiated by
+bootstrap. Keeping existing state in place avoids recreating resources based on
+incomplete deployment guides.
+
+For existing Terraform-managed Knowledge Search and API resources:
+
+1. Back up state with `terraform state pull` to a private ignored location.
+2. First migrate each existing root configuration unchanged to a separate central
+   directory/state prefix. Move its entire existing state/backend; do not import
+   the same resources into a second active state.
+3. Retire the old root configuration after the central plan shows no unintended
+   changes. Keep database/secret resources intact; never run destroy.
+4. Refactor into shared modules as a separate reviewed change using moved blocks
+   or state moves where resource types permit. The API currently uses the v1
+   Cloud Run resource; a move to the v2 module needs a supported migration/import,
+   not an unreviewed address rename.
+
+For manually managed services/jobs, first reproduce their full runtime config:
+environment, secret references, identity, CPU/memory, concurrency/timeouts,
+networking, ingress, mounts, commands, traffic, and schedules. The minimal modules
+here cover basic single-container workloads; extend them for any extra live
+features before importing. Never apply their defaults to an existing workload.
+
+Example import addresses, **after** defining modules with the exact live config:
+
+```bash
+terraform import 'module.line_webhook.google_cloud_run_v2_service.this' projects/dev-projects-476011/locations/asia-northeast1/services/line-webhook-service
+terraform import 'module.line_poster.google_cloud_run_v2_job.this' projects/dev-projects-476011/locations/asia-northeast1/jobs/line-poster-job
+```
+
+Do not apply a plan with unexpected replacements or runtime configuration changes.
+The local stdio memory server and FastMCP-hosted PDM component remain outside this
+rollout. All existing frontends keep their current hosting.
+
+## Rollback
+
+Read the previous image digest from the previous successful Actions summary or
+the target's revision history. Redeploy it explicitly; do not rely on `latest`.
+
+```bash
+gcloud run services update SERVICE_NAME --image=PREVIOUS_IMAGE_DIGEST --project=dev-projects-476011 --region=asia-northeast1
+gcloud run jobs update JOB_NAME --image=PREVIOUS_IMAGE_DIGEST --project=dev-projects-476011 --region=asia-northeast1
+```
+
+These are alternative commands for the relevant target. Job rollback changes its
+next execution; it does not undo completed runs. For services using explicitly
+pinned revision traffic, image updates may not move live traffic. The pipeline
+fails verification if the new revision is not serving 100%; review and change
+traffic intentionally rather than silently overwriting an existing canary split.

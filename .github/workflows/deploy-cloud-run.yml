@@ -1,0 +1,177 @@
+name: Build and deploy Cloud Run
+
+on:
+  workflow_call:
+    inputs:
+      project_id:
+        required: true
+        type: string
+      region:
+        type: string
+        default: asia-northeast1
+      kind:
+        required: true
+        type: string
+      target:
+        required: true
+        type: string
+      registry_repository:
+        required: true
+        type: string
+      image_name:
+        required: true
+        type: string
+      build_context:
+        type: string
+        default: .
+      dockerfile:
+        type: string
+        default: Dockerfile
+    secrets:
+      workload_identity_provider:
+        required: true
+      deploy_service_account:
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+# The caller supplies a target-specific concurrency group as well.
+concurrency:
+  group: cloud-run-${{ github.repository }}-${{ inputs.kind }}-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PROJECT_ID: ${{ inputs.project_id }}
+      REGION: ${{ inputs.region }}
+      KIND: ${{ inputs.kind }}
+      TARGET: ${{ inputs.target }}
+      REGISTRY_REPOSITORY: ${{ inputs.registry_repository }}
+      IMAGE_NAME: ${{ inputs.image_name }}
+    steps:
+      # In a reusable workflow, this checks out the CALLER repository.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate release inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$KIND" == service || "$KIND" == job ]]
+          for value in "$PROJECT_ID" "$REGION" "$TARGET" "$REGISTRY_REPOSITORY" "$IMAGE_NAME"; do
+            [[ "$value" =~ ^[a-z][a-z0-9-]*$ ]] || { echo "Invalid deployment identifier" >&2; exit 1; }
+          done
+          echo "IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/$REGISTRY_REPOSITORY/$IMAGE_NAME" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Build before authentication: no generated GCP credential file in context,
+      # and no short-lived authentication token consumed by a long image build.
+      - name: Build container
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.build_context }}
+          file: ${{ inputs.dockerfile }}
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ inputs.target }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.target }}
+
+      - name: Authenticate with Workload Identity Federation
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ inputs.project_id }}
+          workload_identity_provider: ${{ secrets.workload_identity_provider }}
+          service_account: ${{ secrets.deploy_service_account }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Confirm existing target
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$KIND" == service ]]; then
+            gcloud run services describe "$TARGET" --project="$PROJECT_ID" --region="$REGION" --format=json > "$RUNNER_TEMP/preflight.json"
+          else
+            gcloud run jobs describe "$TARGET" --project="$PROJECT_ID" --region="$REGION" --format=json > "$RUNNER_TEMP/preflight.json"
+          fi
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          resource = json.loads((Path(os.environ['RUNNER_TEMP']) / 'preflight.json').read_text())
+          spec = resource['spec']['template']['spec']
+          if os.environ['KIND'] == 'job':
+              spec = spec['template']['spec']
+          assert len(spec['containers']) == 1, 'Multiple containers require explicit release support'
+          PY
+
+      - name: Push release image
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker push "$IMAGE:$GITHUB_SHA"
+          digest=$(docker image inspect "$IMAGE:$GITHUB_SHA" --format '{{index .RepoDigests 0}}')
+          [[ "$digest" == "$IMAGE@sha256:"* ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Update service or job image
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$KIND" == service ]]; then
+            gcloud run services update "$TARGET" --image="$IMAGE_DIGEST" --project="$PROJECT_ID" --region="$REGION" --quiet
+          else
+            # Update only. Never execute a scheduled/batch job during a release.
+            gcloud run jobs update "$TARGET" --image="$IMAGE_DIGEST" --project="$PROJECT_ID" --region="$REGION" --quiet
+          fi
+
+      - name: Verify deployed image and service readiness
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$KIND" == service ]]; then
+            gcloud run services describe "$TARGET" --project="$PROJECT_ID" --region="$REGION" --format=json > "$RUNNER_TEMP/cloud-run.json"
+          else
+            gcloud run jobs describe "$TARGET" --project="$PROJECT_ID" --region="$REGION" --format=json > "$RUNNER_TEMP/cloud-run.json"
+          fi
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          resource = json.loads((Path(os.environ['RUNNER_TEMP']) / 'cloud-run.json').read_text())
+          spec = resource['spec']['template']['spec']
+          if os.environ['KIND'] == 'job':
+              spec = spec['template']['spec']
+          assert len(spec['containers']) == 1, 'Multiple containers require explicit release support'
+          assert spec['containers'][0]['image'] == os.environ['IMAGE_DIGEST'], 'Deployed image differs'
+          if os.environ['KIND'] == 'service':
+              status = resource['status']
+              assert any(c['type'] == 'Ready' and str(c['status']).lower() == 'true' for c in status.get('conditions', [])), 'Service not ready'
+              assert int(status.get('observedGeneration', -1)) == int(resource['metadata']['generation']), 'Revision not observed'
+              latest = status['latestCreatedRevisionName']
+              assert status['latestReadyRevisionName'] == latest, 'Newest revision not ready'
+              serving = sum(t.get('percent', 0) for t in status.get('traffic', []) if t.get('revisionName') == latest)
+              assert serving == 100, 'Newest revision is not serving 100%; review existing traffic policy'
+          PY
+          {
+            echo "### Cloud Run release"
+            echo "- Target: $KIND / $TARGET"
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Image: $IMAGE_DIGEST"
+            echo "- Existing runtime settings and secret bindings preserved."
+            echo "- No job execution or LLM request was performed."
+          } >> "$GITHUB_STEP_SUMMARY"

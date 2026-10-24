@@ -1,0 +1,6 @@
+github_owner_id = "REPLACE_WITH_NUMERIC_GITHUB_USER_ID"
+runtime_service_accounts = [
+  "828799957094-compute@developer.gserviceaccount.com",
+  "knowledge-search-backend@dev-projects-476011.iam.gserviceaccount.com",
+]
+# Examples only: replace with the identities printed by scripts/inventory.py.
