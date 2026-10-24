@@ -2,7 +2,7 @@
 
 ## Passed locally
 
-- `scripts/validate.py`: ten caller workflows across eight repositories; caller
+- `scripts/validate.py`: eleven caller workflows across nine repositories; caller
   inputs/secrets match the reusable interface; manual-only triggers restricted to main; Dockerfile
   and context paths exist; GitHub remotes match the target inventory; credential
   exclusions exist at the actual Docker build-context roots; legacy API image-only
@@ -15,9 +15,9 @@
   service, stale image, stale observed generation, unready service, failed latest
   revision, traffic pinned to an old revision, multi-container rejection, nested
   job specs, and sanitized inventory output.
-- `scripts/configure_github_secrets.py` preview lists precisely eight repositories
+- `scripts/configure_github_secrets.py` preview lists precisely nine repositories
   and the two expected authentication secret names. `--apply` was not run.
-- `git diff --check` passes across the eight application repositories; all were
+- `git diff --check` passes across the nine application repositories; all were
   clean before this task. New files were checked separately for trailing whitespace.
 - Terraform files have balanced braces. This is a basic sanity check, not HCL or
   provider-schema validation.
@@ -59,8 +59,20 @@ local YAML/shell checks and all nine fixture tests pass.
 
 ## Caller reference update
 
-All ten application deployment callers reference
+All eleven application deployment callers reference
 `Takusei/gcp-platform/.github/workflows/deploy-cloud-run.yml@main`.
 The local validator checks this same reference. Future shared workflow changes
 on main take effect for subsequent manual application deployments without
 updating each caller. Deployment triggers remain manual-only.
+
+## PDM frontend onboarding
+
+Added pdm-agent-chatkit-service as an eleventh target and ninth caller repository.
+Updated WIF repository allowlist, impersonation membership, registry IAM, and
+validation counts. The secret configuration script supports `--repo` for adding
+only the new caller. Offline wiring checks, actionlint, Terraform formatting,
+and central fixture tests pass. Terraform provider validation cannot complete in
+this sandbox because the provider plugin fails its handshake. No apply was run.
+The frontend's seven runtime/session tests, production Vite build without build
+configuration, TypeScript, and full frontend ESLint checks pass. A full Docker/Nginx container build
+and live Cloud Run/session checks were not performed.

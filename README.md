@@ -1,6 +1,6 @@
 # Portfolio GCP deployment
 
-One release process for the eight GCP backend repositories: manually run a deployment from `main` in GitHub Actions →
+One release process for the nine GCP application repositories: manually run a deployment from `main` in GitHub Actions →
 Docker build (`linux/amd64`) → Artifact Registry → update the existing Cloud Run
 service/job by immutable image digest. Vercel deployments stay separate.
 
@@ -12,7 +12,7 @@ Follow [the rollout guide](docs/ROLLOUT.md) before pushing caller changes.
 | Path | Purpose |
 | --- | --- |
 | `.github/workflows/deploy-cloud-run.yml` | Shared `workflow_call` release pipeline |
-| `targets.json` | Ten deployment targets across eight repositories |
+| `targets.json` | Eleven deployment targets across nine repositories |
 | `terraform/bootstrap/` | Dedicated GitHub WIF provider, deployer, and IAM grants |
 | `terraform/modules/cloud-run-service/` | Opt-in service infrastructure module |
 | `terraform/modules/cloud-run-job/` | Opt-in batch job infrastructure module |
@@ -47,6 +47,7 @@ Follow [the rollout guide](docs/ROLLOUT.md) before pushing caller changes.
 | `marp-ppt-agent` | service | `marp-ppt-agent-service` |
 | `marp-ppt-api` | service | `marp-ppt-api-service` |
 | `pdm-agent-backend` | service | `pdf-agent-backend-service` |
+| `pdm-agent-chatkit` | service | `pdm-agent-chatkit-service` |
 | `realEstate` | service | `rec-demo` |
 | `realEstate` | job | `suumo-scraper-job` |
 | `realEstate` | job | `suumo-embed-job` |
@@ -54,15 +55,15 @@ Follow [the rollout guide](docs/ROLLOUT.md) before pushing caller changes.
 These names come from local deployment documentation/Terraform, not a verified
 live inventory. In particular the PDM backend's `pdf` spelling is intentional.
 
-Excluded: Vercel frontends; PDM FastMCP hosting/ChatKit workflow; local stdio Agentic
+Excluded: Vercel frontends; PDM FastMCP hosting and the hosted OpenAI ChatKit workflow; local stdio Agentic
 Memory MCP. Moving those requires separate transport/hosting work.
 
 ## Authentication and scope
 
-The new `portfolio-github` WIF pool accepts only the eight named repositories,
+The new `portfolio-github` WIF pool accepts only the nine named repositories,
 the numeric GitHub owner ID, `refs/heads/main`, and manual-dispatch events only.
 One dedicated deployment service account is shared across these personal projects:
-it has project-wide Cloud Run Developer, writer on the ten existing Artifact
+it has project-wide Cloud Run Developer, writer on the eleven existing Artifact
 Registry repositories, and Service Account User on explicitly listed runtime
 identities. It cannot change project IAM or read Secret Manager payloads.
 Any approved caller can deploy other Cloud Run workloads within that project;

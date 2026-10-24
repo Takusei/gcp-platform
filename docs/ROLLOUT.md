@@ -121,7 +121,7 @@ python3 scripts/configure_github_secrets.py --apply
 ```
 
 The first command previews; the second writes these two repository secrets to the
-eight caller repositories using Terraform's outputs:
+nine caller repositories using Terraform's outputs:
 
 - `GCP_WORKLOAD_IDENTITY_PROVIDER`
 - `GCP_SERVICE_ACCOUNT`
@@ -158,7 +158,7 @@ without sending application requests or consuming model tokens. Check the UI/log
 and a non-LLM health endpoint manually, where available. LLM functionality checks
 consume live APIs and require your explicit decision to run them.
 
-Roll out LINE, PPT, Real Estate, Knowledge Search, then the PDM backend, committing
+Roll out LINE, PPT, Real Estate, Knowledge Search, then the PDM backend and its Cloud Run ChatKit frontend, committing
 only the files listed by `git status` for this task in each repository. Run
 `actionlint` in each repository before publishing. Then manually run the desired
 deployment workflow from **main** in each repository's Actions tab. Real Estate
@@ -223,3 +223,31 @@ next execution; it does not undo completed runs. For services using explicitly
 pinned revision traffic, image updates may not move live traffic. The pipeline
 fails verification if the new revision is not serving 100%; review and change
 traffic intentionally rather than silently overwriting an existing canary split.
+
+## Add the existing PDM ChatKit frontend
+
+The `pdm-agent-chatkit-service` frontend is now the eleventh target (ninth caller
+repository). Its lowercase `dockerfile` builds static assets without local `.env`
+files. Nginx startup generates runtime-config.js from exactly two existing Cloud
+Run settings: VITE_CHATKIT_WORKFLOW_ID and VITE_API_URL. These browser-visible
+identifiers are not OpenAI API credentials. No additional GitHub build secrets
+are required, and the backend keeps the OpenAI API key.
+
+For an already-bootstrapped setup:
+
+1. Run `python3 scripts/inventory.py` and confirm the frontend runtime identity is
+   in `terraform/bootstrap/terraform.tfvars`'s runtime_service_accounts set.
+2. Review/apply the updated bootstrap plan to add this repository to the WIF
+   condition, grant its impersonation binding, and grant Artifact Registry writer
+   on the existing pdm-agent-chatkit registry. With an unchanged runtime-account
+   set, expect two IAM additions and one provider condition update, no destroys.
+3. Run `python3 scripts/configure_github_secrets.py --repo Takusei/pdm-agent-chatkit --apply`.
+4. Commit/push gcp-platform and the pdm-agent-chatkit changes to their main branches.
+5. In pdm-agent-chatkit, manually run **Deploy pdm-agent-chatkit-service** on main.
+6. Confirm runtime-config.js is served and the page loads. Test a real conversation
+   only when you intend to consume OpenAI API tokens.
+
+The image-only release retains both existing Secret Manager environment bindings.
+If either setting is missing, container startup now fails clearly instead of
+serving an unusable frontend. The session backend URL must already allow requests
+from the frontend origin; no backend or ChatKit workflow configuration is changed.
