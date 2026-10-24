@@ -42,7 +42,7 @@ Local Python checks used the already-installed Python/PyYAML from
 
 `validate.yml` runs the offline tests plus real Terraform provider validation in
 GitHub. Run the rollout guide's local Terraform/actionlint checks first, and let
-that validation workflow pass before updating application callers to a new shared commit.
+that validation workflow pass before merging shared workflow changes into main.
 
 ## Actions runtime maintenance
 
@@ -57,10 +57,10 @@ These changes address the Node.js 20 annotations and avoid the automatic
 ubuntu-latest OS migration. They require a new GitHub run to verify remotely;
 local YAML/shell checks and all nine fixture tests pass.
 
-## Caller revision update
+## Caller reference update
 
-All ten application deployment callers now reference the actual GitHub repository
-`Takusei/gcp-platform` and pin commit
-`824dfd91ae9543423fb8669fb61d87cd3497d4c6`, which contains the Node.js 24 actions,
-Ubuntu 24.04 runner pin, and manual-only deployment guard. The local validator
-checks this same full reference. No tag creation is needed for these callers.
+All ten application deployment callers reference
+`Takusei/gcp-platform/.github/workflows/deploy-cloud-run.yml@main`.
+The local validator checks this same reference. Future shared workflow changes
+on main take effect for subsequent manual application deployments without
+updating each caller. Deployment triggers remain manual-only.

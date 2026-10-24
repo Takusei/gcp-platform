@@ -60,22 +60,21 @@ gh run list --workflow validate.yml --limit 5
 ```
 
 Wait for `Validate shared deployment` to succeed (use `gh run watch RUN_ID`).
-The application callers use a full commit SHA; no release tag is needed.
+The application callers use `@main`; no release tag is needed.
 
 The existing remote is **Takusei/gcp-platform** (the local folder is
 `gcp-platform`). If that remote already exists, skip `gh repo create` above and
 push your reviewed changes with your normal Git workflow.
 
-Application callers currently pin the tested Node.js 24 workflow revision:
+Application callers use the latest shared workflow on `main`:
 
 ```text
-Takusei/gcp-platform/.github/workflows/deploy-cloud-run.yml@824dfd91ae9543423fb8669fb61d87cd3497d4c6
+Takusei/gcp-platform/.github/workflows/deploy-cloud-run.yml@main
 ```
 
-No version tag is required. Ensure this commit exists in the shared remote before
-running application deployments. The repository-creation commands above describe
-initial setup; existing users do not need to create or move a tag. For future
-shared deployment changes, validate the new commit and update caller SHA pins.
+No version tag or caller SHA update is required. Validate shared workflow changes
+before merging them into `gcp-platform/main`; subsequent manually triggered
+application deployments use that updated workflow. Deployment remains manual-only.
 
 If using a private shared repository, explicitly enable workflow access in
 Settings → Actions → General and confirm callers can access it.

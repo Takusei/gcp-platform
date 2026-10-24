@@ -46,7 +46,7 @@ def main():
         assert set(workflow["on"]) == {"workflow_dispatch"}, (path, "Deployment must be manual only")
         assert workflow["jobs"]["deploy"]["if"] == "github.ref == 'refs/heads/main'"
         job = workflow["jobs"]["deploy"]
-        assert job["uses"] == "Takusei/gcp-platform/.github/workflows/deploy-cloud-run.yml@824dfd91ae9543423fb8669fb61d87cd3497d4c6"
+        assert job["uses"] == "Takusei/gcp-platform/.github/workflows/deploy-cloud-run.yml@main"
         assert set(job["with"]) == declared
         assert set(job["secrets"]) == secrets
         for field in ("kind", "target", "registry_repository", "image_name", "build_context", "dockerfile"):
